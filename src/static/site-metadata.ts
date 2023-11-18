@@ -10,18 +10,18 @@ interface ISiteMetadataResult {
 }
 
 const data: ISiteMetadataResult = {
-  siteTitle: 'Running Page',
-  siteUrl: 'https://lipeng.run',
+  siteTitle: 'Li Peng\'s Running Page',
+  siteUrl: 'https://lipeng-run.vercel.app',
   logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQTtc69JxHNcmN1ETpMUX4dozAgAN6iPjWalQ&usqp=CAU',
-  description: 'My running history',
+  description: 'My running statistics. Thanks to [Yi Hong](https://github.com/yihong0618) for developing this amazing project.',
   navLinks: [
     {
       name: 'Blog',
-      url: 'https://github.com/lipeng31',
+      url: 'https://www.strava.com/athletes/126825325',
     },
     {
       name: 'About',
-      url: 'https://github.com/lipeng31',
+      url: 'https://www.strava.com/athletes/126825325',
     },
   ],
 };
