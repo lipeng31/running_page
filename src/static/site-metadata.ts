@@ -17,11 +17,11 @@ const data: ISiteMetadataResult = {
   navLinks: [
     {
       name: 'Blog',
-      url: 'https://www.strava.com/athletes/126825325',
+      url: 'https://lipeng31.github.io',
     },
     {
       name: 'About',
-      url: 'https://www.strava.com/athletes/126825325',
+      url: 'https://lipeng31.github.io/about.html',
     },
   ],
 };
