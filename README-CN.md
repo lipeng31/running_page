@@ -95,7 +95,10 @@ R.I.P. 希望大家都能健康顺利的跑过终点，逝者安息。
 | [deepinwine](https://github.com/deepinwine)       | <https://deepin.autove.dev/>                   | Garmin-cn   |
 | [Jeffggmm](https://github.com/Jeffggmm)           | <https://jeffggmm.github.io/workouts_page/>    | Garmin      |
 | [s1smart](https://github.com/s1smart)             | <https://s1smart.github.io/running_page/>      | Strava      |
-
+| [Ryan](https://github.com/85Ryan)                 | <https://85ryan.github.io/gooorun/>            | Strava      |
+| [PPZ](https://github.com/8824PPZ)                 | <https://run.dudubbbbbbbbb.top/>               | Strava      |
+| [Yer1k](https://github.com/Yer1k)                 | <https://running.yer1k.com/>                   | Strava      |
+| [AlienVision](https://github.com/weaming)         | <https://run.drink.cafe/>                      | Strava      |
 </details>
 
 ## 它是怎么工作的
@@ -136,12 +139,13 @@ R.I.P. 希望大家都能健康顺利的跑过终点，逝者安息。
 - **[GPX](#gpx)**
 - **[TCX](#tcx)**
 - **[FIT](#fit)**
+- **[佳明国内同步国际](#Garmin-CN-to-Garmin)**
 - **[Tcx+Strava(upload all tcx data to strava)](#tcx_to_strava)**
 - **[Gpx+Strava(upload all tcx data to strava)](#gpx_to_strava)**
 - **[Nike+Strava(Using NRC Run, Strava backup data)](#nikestrava)**
 - **[Garmin_to_Strava(Using Garmin Run, Strava backup data)](#garmin_to_strava)**
 - **[Strava_to_Garmin(Using Strava Run, Garmin backup data)](#strava_to_garmin)**
-
+- **[Coros高驰](#Coros高驰)**
 ## 视频教程
 
 - https://www.youtube.com/watch?v=reLiY9p8EJk
@@ -230,6 +234,11 @@ siteMetadata: {
 const USE_DASH_LINE = true;
 // styling: 透明度：[0, 1]
 const LINE_OPACITY = 0.4;
+// styling: 开启隐私模式(不显示地图仅显示轨迹): 设置为 `true`
+// 注意：此配置仅影响页面显示，数据保护请参考下方的 "隐私保护"
+const PRIVACY_MODE = false;
+// styling: 默认关灯: 设置为 `false`, 仅在隐私模式关闭时生效(`PRIVACY_MODE` = false)
+const LIGHTS_ON = true;
 ```
 
 > 隐私保护：设置下面环境变量：
@@ -569,6 +578,43 @@ python3(python) run_page/garmin_sync.py xxxxxxxxxx --is-cn --only-run
 
 </details>
 
+### Garmin-CN to Garmin
+
+<details>
+<summary> 同步佳明 CN 数据到 佳明国际区</summary>
+
+<br>
+
+- 如果你只想同步 `type running` 使用参数 --only-run
+**The Python version must be >=3.10**
+
+#### 获取佳明 CN 的密钥
+
+在终端中输入以下命令
+
+```bash
+python3(python) run_page/get_garmin_secret.py ${your email} ${your password} --is-cn
+```
+
+#### 获取佳明全球的密钥
+
+在终端中输入以下命令
+
+```bash
+python3(python) run_page/get_garmin_secret.py ${your email} ${your password}
+```
+
+#### 同步 佳明 CN 到 佳明全球
+
+在终端中输入以下命令
+
+```bash
+python3(python) run_page/garmin_sync_cn_global.py ${garmin_cn_secret_string} ${garmin_secret_string}
+```
+
+</details>
+
+
 ### Nike Run Club
 
 <details>
@@ -580,10 +626,15 @@ python3(python) run_page/garmin_sync.py xxxxxxxxxx --is-cn --only-run
 
 获取 Nike 的 refresh_token
 
-1. 登录 [Nike](https://www.nike.com) 官网
-2. In Developer -> Application-> Storage -> https:unite.nike.com 中找到 refresh_token
+**全部需要在大陆以外的全局 ip 下进行**
 
-![image](https://user-images.githubusercontent.com/15976103/94448123-23812b00-01dd-11eb-8143-4b0839c31d90.png) 3. 在项目根目录下执行：
+![example img](https://user-images.githubusercontent.com/67903793/282300381-4e7437d0-65a9-4eed-93d1-2b70e360215f.png)
+
+1. 在这里登陆[website](https://unite.nike.com/s3/unite/mobile.html?androidSDKVersion=3.1.0&corsoverride=https%3A%2F%2Funite.nike.com&uxid=com.nike.sport.running.droid.3.8&backendEnvironment=identity&view=login&clientId=VhAeafEGJ6G8e9DxRUz8iE50CZ9MiJMG), 打开 F12 在浏览器抓 login -> XHR -> get the `refresh_token` from login api
+
+2. 复制 `refresh_token` 之后可以添加在GitHub Secrets 中，也可以直接在命令行中使用
+
+> Chrome 浏览器：按下 F12 打开浏览器开发者工具，点击 Application 选项卡，来到左侧的 Storage 面板，点击展开 Local storage，点击下方的 https://unite.nike.com。接着点击右侧的 com.nike.commerce.nikedotcom.web.credential Key，下方会分行显示我们选中的对象，可以看到 refresh_token ，复制 refresh_token 右侧的值。Safari 浏览器：在 Safari 打开 Nike 的网页后，右击页面，选择「检查元素」，打开浏览器开发者工具。点击「来源」选项卡，在左侧找到 XHR 文件夹，点击展开，在下方找到 login 文件并单击，在右侧同样可以看到 refresh_token ，复制 refresh_token 右侧的值。
 
 ```bash
 python3(python) run_page/nike_sync.py ${nike refresh_token}
@@ -815,6 +866,27 @@ python3(python) run_page/strava_to_garmin_sync.py ${{ secrets.STRAVA_CLIENT_ID }
 
 </details>
 
+### Coros高驰
+
+<details>
+<summary>获取您的 Coros高驰 数据</summary>
+
+#### 在终端中输入以下命令
+
+```bash
+python run_page/coros_sync.py ${{ secrets.COROS_ACCOUNT }} ${{ secrets.COROS_PASSWORD }}
+```
+
+#### 修改 `run_data_sync.yml` 中 `env.RUN_TYPE: coros`
+
+#### 设置 github action中Coros高驰信息
+
+- 在github action中配置`COROS_ACCOUNT`,`COROS_PASSWORD`参数
+
+  ![github-action](https://img3.uploadhouse.com/fileuploads/30980/3098042335f8995623f8b50776c4fad4cf7fff8d.png)
+
+</details>
+
 ### Total Data Analysis
 
 <details>
@@ -907,11 +979,11 @@ python3(python) run_page/gen_svg.py --from-db --type circular --use-localtime
 4. 为 GitHub Actions 添加代码提交权限，访问仓库的 `Settings > Actions > General`页面，找到 `Workflow permissions` 的设置项，将选项配置为 `Read and write permissions`，支持 CI 将运动数据更新后提交到仓库中。
 
 
-5. 如果想把你的 running_page 部署在 xxx.github.io 而不是 xxx.github.io/run_page，需要做三点
+5. 如果想把你的 running_page 部署在 xxx.github.io 而不是 xxx.github.io/run_page 亦或是想要添加自定义域名于 GitHub Pages，需要做三点
 
 -  修改你的 fork 的 running_page 仓库改名为 xxx.github.io, xxx 是你 github 的 username
 -  修改 gh-pages.yml 中的 Build 模块，删除 `${{ github.event.repository.name }}` 改为`run: PATH_PREFIX=/ pnpm build` 即可
--  src/static/site-metadata.ts 中 `siteUrl: ''` 即可
+-  修改 src/static/site-metadata.ts 中 `siteUrl: ''` 或是添加你的自定义域名，`siteUrl: '[your_own_domain]'`， 即可
 
 </details>
 
