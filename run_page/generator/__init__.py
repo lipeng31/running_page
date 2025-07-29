@@ -46,11 +46,15 @@ class Generator:
         print("Access ok")
 
     def sync(self, force):
+        """
+        Sync activities means sync from strava
+        TODO, better name later
+        """
         self.check_access()
 
         print("Start syncing")
         if force:
-            filters = {"before": datetime.datetime.utcnow()}
+            filters = {"before": datetime.datetime.now(datetime.timezone.utc)}
         else:
             last_activity = self.session.query(func.max(Activity.start_date)).scalar()
             if last_activity:
@@ -58,7 +62,7 @@ class Generator:
                 last_activity_date = last_activity_date.shift(days=-7)
                 filters = {"after": last_activity_date.datetime}
             else:
-                filters = {"before": datetime.datetime.utcnow()}
+                filters = {"before": datetime.datetime.now(datetime.timezone.utc)}
 
         for activity in self.client.get_activities(**filters):
             if self.only_run and activity.type != "Run":
@@ -68,6 +72,9 @@ class Generator:
                     activity.map.summary_polyline = filter_out(
                         activity.map.summary_polyline
                     )
+            #  strava use total_elevation_gain as elevation_gain
+            activity.elevation_gain = activity.total_elevation_gain
+            activity.subtype = activity.type
             created = update_or_create_activity(self.session, activity)
             if created:
                 sys.stdout.write("+")
@@ -76,9 +83,11 @@ class Generator:
             sys.stdout.flush()
         self.session.commit()
 
-    def sync_from_data_dir(self, data_dir, file_suffix="gpx"):
+    def sync_from_data_dir(self, data_dir, file_suffix="gpx", activity_title_dict={}):
         loader = track_loader.TrackLoader()
-        tracks = loader.load_tracks(data_dir, file_suffix=file_suffix)
+        tracks = loader.load_tracks(
+            data_dir, file_suffix=file_suffix, activity_title_dict=activity_title_dict
+        )
         print(f"load {len(tracks)} tracks")
         if not tracks:
             print("No tracks found.")
@@ -120,21 +129,20 @@ class Generator:
         self.session.commit()
 
     def load(self):
-        activities = (
-            self.session.query(Activity)
-            .filter(Activity.distance > 0.1)
-            .order_by(Activity.start_date_local)
-        )
+        # if sub_type is not in the db, just add an empty string to it
+        query = self.session.query(Activity).filter(Activity.distance > 0.1)
+        if self.only_run:
+            query = query.filter(Activity.type == "Run")
+
+        activities = query.order_by(Activity.start_date_local)
         activity_list = []
 
         streak = 0
         last_date = None
         for activity in activities:
-            if self.only_run and activity.type != "Run":
-                continue
             # Determine running streak.
             date = datetime.datetime.strptime(
-                activity.start_date_local, "%Y-%m-%d %H:%M:%S"
+                activity.start_date_local, "%Y-%m-%d %H:%M:%S"  # type: ignore
             ).date()
             if last_date is None:
                 streak = 1
@@ -145,10 +153,10 @@ class Generator:
             else:
                 assert date > last_date
                 streak = 1
-            activity.streak = streak
+            activity.streak = streak  # type: ignore
             last_date = date
             if not IGNORE_BEFORE_SAVING:
-                activity.summary_polyline = filter_out(activity.summary_polyline)
+                activity.summary_polyline = filter_out(activity.summary_polyline)  # type: ignore
             activity_list.append(activity.to_dict())
 
         return activity_list
