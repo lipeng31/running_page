@@ -26,3 +26,6 @@ route.png
 route.svg
 
 .env
+
+.omc/
+.claude/
