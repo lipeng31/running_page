@@ -111,6 +111,14 @@ jobs:
             ${{ env.DATA_CACHE_PREFIX }}-${{ github.sha }}-
             ${{ env.DATA_CACHE_PREFIX }}-
 
+      # The data cache contains the whole `assets/` directory, which mixes
+      # generated SVGs with the source file `assets/index.tsx`. Restore the
+      # source file from git after the cache step so a stale cache never
+      # carries an old `index.tsx` back into the saved cache.
+      - name: Restore source assets from git
+        if: env.SAVE_DATA_IN_GITHUB_CACHE == 'true'
+        run: git checkout -- assets/index.tsx
+
       - name: Run sync Nike script
         if: env.RUN_TYPE == 'nike'
         run: |

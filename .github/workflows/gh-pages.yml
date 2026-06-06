@@ -71,6 +71,14 @@ jobs:
             ${{ inputs.data_cache_prefix }}-${{ github.sha }}-
             ${{ inputs.data_cache_prefix }}-
 
+      # The data cache contains the whole `assets/` directory, which mixes
+      # generated SVGs with the source file `assets/index.tsx`. Restoring a
+      # stale cache can overwrite `index.tsx` with an old version and break the
+      # build (missing exports). Restore the source file from git after the
+      # cache step so the build always uses the committed version.
+      - name: Restore source assets from git
+        run: git checkout -- assets/index.tsx
+
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
         with:
