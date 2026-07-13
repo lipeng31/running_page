@@ -7,6 +7,7 @@ settings:
   base:
     MARKETING_VERSION: 1.0
     CURRENT_PROJECT_VERSION: 1
+    DEVELOPMENT_TEAM: 4AFRZJC734
 packages:
   RunningPageSyncCore:
     path: RunningPageSyncCore
@@ -20,8 +21,12 @@ targets:
       - RunningPageSync/Resources
     info:
       path: RunningPageSync/Resources/Info.plist
+      properties:
+        NSHealthShareUsageDescription: Running Page Sync reads your running workouts and routes so you can sync them to your own GitHub repository.
     entitlements:
       path: RunningPageSync/Resources/RunningPageSync.entitlements
+      properties:
+        com.apple.developer.healthkit: true
     dependencies:
       - package: RunningPageSyncCore
         product: RunningPageSyncCore

@@ -175,6 +175,12 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					1ABFA4F83F6CB3A8F54459D5 = {
+						DevelopmentTeam = 4AFRZJC734;
+					};
+					D7842DCBA248AF36061CB494 = {
+						DevelopmentTeam = 4AFRZJC734;
+					};
 				};
 			};
 			buildConfigurationList = 83FFE435AFBE1F120BFCDFF3 /* Build configuration list for PBXProject "RunningPageSync" */;
@@ -304,6 +310,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 4AFRZJC734;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -362,6 +369,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 4AFRZJC734;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;

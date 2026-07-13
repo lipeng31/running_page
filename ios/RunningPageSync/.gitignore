@@ -1,5 +1,8 @@
 .DS_Store
 RunningPageSyncCore/.build/
+RunningPageSyncCore/.swiftpm/
 *.xcuserdata/
+xcuserdata/
 *.xcuserstate
 DerivedData/
+.derived-device/
