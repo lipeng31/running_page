@@ -52,9 +52,6 @@ on:
       - run_page/keep_to_strava_sync.py
       - run_page/oppo_sync.py
       - run_page/intervals_icu_sync.py
-      - GPX_OUT/**
-      - TCX_OUT/**
-      - FIT_OUT/**
       - requirements.txt
 
 env:
