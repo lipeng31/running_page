@@ -16,7 +16,7 @@ struct WorkoutListView: View {
                     description: Text("Authorize Health access, then reload workouts.")
                 )
             } else {
-                ForEach(workouts) { workout in
+                ForEach(workouts.prefix(30)) { workout in
                     WorkoutRow(
                         workout: workout,
                         isSynced: syncedStore.isSynced(workout.id),

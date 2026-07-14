@@ -19,7 +19,10 @@ public struct GPXExporter {
         workout: WorkoutSummary,
         data: WorkoutExportData
     ) throws -> String {
-        guard !data.locations.isEmpty else {
+        guard !data.locations.isEmpty
+            || workout.distanceMeters > 0
+            || workout.durationSeconds > 0
+            || !data.metrics.isEmpty else {
             throw WorkoutSyncError.noRoute
         }
 
@@ -44,20 +47,20 @@ public struct GPXExporter {
         lines.append("  <trk>")
         lines.append("    <name>\(escapeXML(workout.name))</name>")
         lines.append("    <type>running</type>")
-        lines.append("    <trkseg>")
-
-        for location in data.locations {
-            appendTrackPoint(
-                to: &lines,
-                location: location,
-                heartRate: nearestSampleValue(
-                    at: location.timestamp,
-                    sortedSamples: heartRateSamples
+        if !data.locations.isEmpty {
+            lines.append("    <trkseg>")
+            for location in data.locations {
+                appendTrackPoint(
+                    to: &lines,
+                    location: location,
+                    heartRate: nearestSampleValue(
+                        at: location.timestamp,
+                        sortedSamples: heartRateSamples
+                    )
                 )
-            )
+            }
+            lines.append("    </trkseg>")
         }
-
-        lines.append("    </trkseg>")
         lines.append("  </trk>")
         lines.append("</gpx>")
         return lines.joined(separator: "\n")
@@ -76,6 +79,7 @@ public struct GPXExporter {
 
         lines.append("  <extensions>")
         lines.append("    <rps:workout_id>\(escapeXML(workout.id))</rps:workout_id>")
+        lines.append("    <rps:start_time>\(format(workout.startDate))</rps:start_time>")
         lines.append("    <rps:end_time>\(format(workout.endDate))</rps:end_time>")
         lines.append("    <rps:distance>\(number(workout.distanceMeters))</rps:distance>")
         lines.append("    <rps:moving_time>\(number(workout.durationSeconds))</rps:moving_time>")

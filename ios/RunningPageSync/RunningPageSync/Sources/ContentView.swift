@@ -76,14 +76,10 @@ struct ContentView: View {
                     await healthService.loadRecentRunningWorkouts()
                 }
             }
-            Button("Sync Latest Unsynced Run") {
+            Button("Sync All Missing Runs") {
                 Task {
-                    guard let workout = healthService.workouts.first(where: { !syncedStore.isSynced($0.id) }) else {
-                        syncCoordinator.setMessage("No unsynced workout found.", isError: false)
-                        return
-                    }
-                    await syncCoordinator.sync(
-                        workout: workout,
+                    await syncCoordinator.syncAllMissing(
+                        workouts: healthService.workouts,
                         settings: settingsStore.settings,
                         token: settingsStore.token,
                         healthService: healthService,

@@ -56,3 +56,37 @@ def test_running_page_imports_extended_gpx_summary_and_heart_rate(tmp_path):
     assert track.moving_dict["moving_time"] == datetime.timedelta(seconds=3_600)
     assert track.moving_dict["elapsed_time"] == datetime.timedelta(seconds=3_700)
     assert track.moving_dict["average_speed"] == 2.777778
+
+
+def test_running_page_imports_route_less_workout_summary(tmp_path):
+    gpx_file = tmp_path / "indoor.gpx"
+    gpx_file.write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RunningPageSync"
+     xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:rps="https://github.com/lipeng31/running_page/xmlschemas/WorkoutExtension/v1">
+  <extensions>
+    <rps:start_time>2026-07-14T00:00:00Z</rps:start_time>
+    <rps:end_time>2026-07-14T00:30:10Z</rps:end_time>
+    <rps:distance>5000</rps:distance>
+    <rps:moving_time>1800</rps:moving_time>
+    <rps:elapsed_time>1810</rps:elapsed_time>
+    <rps:average_speed>2.777778</rps:average_speed>
+    <rps:average_hr>145</rps:average_hr>
+  </extensions>
+  <trk><name>Indoor Run</name><type>running</type></trk>
+</gpx>
+""",
+        encoding="utf-8",
+    )
+
+    track = Track()
+    track.load_gpx(gpx_file)
+
+    assert track.start_time == datetime.datetime(
+        2026, 7, 14, tzinfo=datetime.timezone.utc
+    )
+    assert track.length == 5_000
+    assert track.average_heartrate == 145
+    assert track.moving_dict["moving_time"] == datetime.timedelta(seconds=1_800)
+    assert track.moving_dict["elapsed_time"] == datetime.timedelta(seconds=1_810)

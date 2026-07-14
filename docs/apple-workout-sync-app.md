@@ -2,7 +2,7 @@
 
 `ios/RunningPageSync` is a self-use iOS companion app for syncing Apple Watch runs recorded with Apple Workout into this running_page repository without Strava.
 
-The app reads Apple Health workouts, routes, metrics, metadata, and events through HealthKit. It exports the selected workout as an extended GPX file, uploads it to `GPX_OUT/`, then triggers `run_data_sync.yml` with `run_type=only_gpx`.
+The app reads Apple Health workouts, routes, metrics, metadata, and events through HealthKit. It exports workouts as extended GPX files, uploads them to `GPX_OUT/`, then triggers `run_data_sync.yml` with `run_type=only_gpx`.
 
 ## Requirements
 
@@ -65,10 +65,11 @@ Tap Save.
 1. Open the app after recording a run with Apple Workout.
 2. Tap Authorize Health Access if needed.
 3. Tap Reload Workouts.
-4. Tap Sync on a workout, or tap Sync Latest Unsynced Run.
-5. The app uploads a GPX file to `GPX_OUT/`.
-6. The app triggers GitHub Actions with `run_type=only_gpx`.
-7. GitHub Actions imports the GPX, updates `src/static/activities.json`, regenerates SVG assets, and publishes the running page.
+4. Tap Sync on one workout, or tap Sync All Missing Runs.
+5. For batch sync, the app reads the published activity inventory from GitHub Pages and compares it with all running workouts in HealthKit.
+6. The app uploads only missing GPX files to `GPX_OUT/`.
+7. After all uploads finish, the app triggers GitHub Actions once with `run_type=only_gpx`.
+8. GitHub Actions imports the GPX files, updates `src/static/activities.json`, regenerates SVG assets, and publishes the running page.
 
 ## Notes
 
@@ -79,5 +80,7 @@ Tap Save.
 - Workout metadata, source and device information, pause/lap events, and Core Location accuracy, speed, and course values are also retained.
 - HealthKit only returns data types that the user authorizes and that Apple Workout recorded for the selected run.
 - Sync Again updates the existing GPX file instead of creating a duplicate activity.
-- If the selected workout has no route points, the app shows an error and does not upload anything.
+- The Action cache records GPX content hashes, so updating an existing file causes it to be imported again.
+- Workouts without route points are exported with their duration, distance, metrics, metadata, and events. This supports indoor runs when Apple Workout did not record a GPS route.
+- Batch matching requires the repository's GitHub Pages site and Vite manifest to be publicly readable.
 - Running on a simulator is not useful because HealthKit workout data and route authorization must be tested on a real iPhone.

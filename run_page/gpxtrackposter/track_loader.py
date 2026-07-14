@@ -19,7 +19,7 @@ from .exceptions import ParameterError, TrackLoadError
 from .track import Track
 from .year_range import YearRange
 
-from synced_data_file_logger import load_synced_file_list
+from synced_data_file_logger import file_digest, load_synced_file_hashes
 
 log = logging.getLogger(__name__)
 
@@ -155,15 +155,16 @@ class TrackLoader:
 
     @staticmethod
     def _list_data_files(data_dir, file_suffix):
-        synced_files = load_synced_file_list()
+        synced_hashes = load_synced_file_hashes()
         data_dir = os.path.abspath(data_dir)
         if not os.path.isdir(data_dir):
             raise ParameterError(f"Not a directory: {data_dir}")
         for name in os.listdir(data_dir):
             if name.startswith("."):
                 continue
-            if name in synced_files:
-                continue
             path_name = os.path.join(data_dir, name)
-            if name.endswith(f".{file_suffix}") and os.path.isfile(path_name):
-                yield path_name
+            if not name.endswith(f".{file_suffix}") or not os.path.isfile(path_name):
+                continue
+            if synced_hashes.get(name) == file_digest(path_name):
+                continue
+            yield path_name

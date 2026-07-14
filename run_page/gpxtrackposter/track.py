@@ -248,6 +248,16 @@ class Track:
                 moving_time += self._calc_moving_time(s.points, 10)
         gpx.simplify()
         if self.length == 0:
+            elapsed_time = max(
+                0,
+                int(self.end_time.timestamp() - self.start_time.timestamp()),
+            )
+            self.moving_dict = {
+                "distance": 0,
+                "moving_time": datetime.timedelta(0),
+                "elapsed_time": datetime.timedelta(seconds=elapsed_time),
+                "average_speed": 0,
+            }
             self._load_gpx_extensions_data(gpx)
             return
         polyline_container = []

@@ -28,7 +28,7 @@ final class HealthKitWorkoutService: ObservableObject {
     func authorizeAndLoad() async {
         do {
             try await requestAuthorization()
-            try await loadRecentRunningWorkouts(limit: 30)
+            try await loadRecentRunningWorkouts(limit: HKObjectQueryNoLimit)
         } catch {
             authorizationState = .failed(error.localizedDescription)
         }
@@ -65,7 +65,7 @@ final class HealthKitWorkoutService: ObservableObject {
 
     func loadRecentRunningWorkouts() async {
         do {
-            try await loadRecentRunningWorkouts(limit: 30)
+            try await loadRecentRunningWorkouts(limit: HKObjectQueryNoLimit)
         } catch {
             authorizationState = .failed(error.localizedDescription)
         }
@@ -117,7 +117,7 @@ final class HealthKitWorkoutService: ObservableObject {
         }
 
         return WorkoutExportData(
-            locations: try await loadRouteLocations(for: hkWorkout),
+            locations: (try? await loadRouteLocations(for: hkWorkout)) ?? [],
             metrics: await loadMetrics(for: hkWorkout),
             metadata: workoutMetadata(for: hkWorkout),
             events: workoutEvents(for: hkWorkout)

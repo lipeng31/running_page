@@ -210,7 +210,7 @@ class Generator:
             synced_files.extend(t.file_names)
             sys.stdout.flush()
 
-        save_synced_data_file_list(synced_files)
+        save_synced_data_file_list(synced_files, data_dir)
 
         self.session.commit()
 

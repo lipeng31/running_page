@@ -175,6 +175,7 @@ public enum WorkoutSyncError: Error, Equatable, LocalizedError {
     case noRoute
     case incompleteSettings
     case missingToken
+    case activityInventoryUnavailable
     case invalidGitHubResponse(statusCode: Int)
 
     public var errorDescription: String? {
@@ -189,6 +190,8 @@ public enum WorkoutSyncError: Error, Equatable, LocalizedError {
             "GitHub settings are incomplete."
         case .missingToken:
             "GitHub token is missing."
+        case .activityInventoryUnavailable:
+            "The current running page activity inventory could not be loaded."
         case let .invalidGitHubResponse(statusCode):
             "GitHub request failed with status \(statusCode)."
         }

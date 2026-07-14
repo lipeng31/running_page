@@ -53,6 +53,30 @@ final class GPXExporterTests: XCTestCase {
         }
     }
 
+    func testExportsRouteLessWorkoutSummary() throws {
+        let startDate = Date(timeIntervalSince1970: 1_788_422_400)
+        let workout = WorkoutSummary(
+            id: "indoor-workout",
+            name: "Indoor Run",
+            startDate: startDate,
+            endDate: startDate.addingTimeInterval(1_810),
+            distanceMeters: 5_000,
+            durationSeconds: 1_800,
+            hasRoute: false
+        )
+
+        let gpx = try GPXExporter().export(
+            workout: workout,
+            data: WorkoutExportData(locations: [])
+        )
+
+        XCTAssertTrue(gpx.contains("<rps:start_time>2026-09-03T08:00:00Z</rps:start_time>"))
+        XCTAssertTrue(gpx.contains("<rps:distance>5000</rps:distance>"))
+        XCTAssertTrue(gpx.contains("<rps:moving_time>1800</rps:moving_time>"))
+        XCTAssertTrue(gpx.contains("<trk>"))
+        XCTAssertFalse(gpx.contains("<trkseg>"))
+    }
+
     func testExportsHealthMetricsMetadataEventsAndTrackPointHeartRate() throws {
         let startDate = Date(timeIntervalSince1970: 1_788_422_400)
         let workout = WorkoutSummary(
