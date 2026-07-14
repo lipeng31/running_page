@@ -141,13 +141,12 @@ jobs:
             ${{ env.DATA_CACHE_PREFIX }}-${{ github.sha }}-
             ${{ env.DATA_CACHE_PREFIX }}-
 
-      # The data cache contains the whole `assets/` directory, which mixes
-      # generated SVGs with the source file `assets/index.tsx`. Restore the
-      # source file from git after the cache step so a stale cache never
-      # carries an old `index.tsx` back into the saved cache.
-      - name: Restore source assets from git
+      # The data cache contains generated assets and uploaded GPX files. Restore
+      # repository-owned inputs after the cache step so stale cached copies do
+      # not replace the current commit's source files.
+      - name: Restore repository inputs from git
         if: env.SAVE_DATA_IN_GITHUB_CACHE == 'true'
-        run: git checkout -- assets/index.tsx
+        run: git checkout -- assets/index.tsx GPX_OUT
 
       - name: Resolve run type
         id: resolve_run_type
