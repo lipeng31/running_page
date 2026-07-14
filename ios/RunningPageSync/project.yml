@@ -5,8 +5,8 @@ options:
     iOS: "17.0"
 settings:
   base:
-    MARKETING_VERSION: 1.2
-    CURRENT_PROJECT_VERSION: 3
+    MARKETING_VERSION: 1.3
+    CURRENT_PROJECT_VERSION: 4
     DEVELOPMENT_TEAM: 4AFRZJC734
 packages:
   RunningPageSyncCore:
@@ -25,6 +25,10 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSHealthShareUsageDescription: Running Page Sync reads your workouts, routes, heart rate, energy, steps, and running metrics so you can sync a complete workout record to your own GitHub repository.
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
     entitlements:
       path: RunningPageSync/Resources/RunningPageSync.entitlements
       properties:
@@ -39,6 +43,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.runningpage.RunningPageSync
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        TARGETED_DEVICE_FAMILY: 1
   RunningPageSyncTests:
     type: bundle.unit-test
     platform: iOS

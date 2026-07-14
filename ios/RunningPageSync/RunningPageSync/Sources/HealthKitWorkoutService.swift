@@ -21,11 +21,18 @@ private struct HealthMetricDefinition {
 final class HealthKitWorkoutService: ObservableObject {
     @Published private(set) var workouts: [WorkoutSummary] = []
     @Published private(set) var authorizationState: HealthAuthorizationState = .notDetermined
+    @Published private(set) var isLoading = false
 
     private let healthStore = HKHealthStore()
     private var workoutByID: [String: HKWorkout] = [:]
 
     func authorizeAndLoad() async {
+        guard !isLoading else {
+            return
+        }
+        isLoading = true
+        defer { isLoading = false }
+
         do {
             try await requestAuthorization()
             try await loadRecentRunningWorkouts(limit: HKObjectQueryNoLimit)
@@ -64,6 +71,12 @@ final class HealthKitWorkoutService: ObservableObject {
     }
 
     func loadRecentRunningWorkouts() async {
+        guard !isLoading else {
+            return
+        }
+        isLoading = true
+        defer { isLoading = false }
+
         do {
             try await loadRecentRunningWorkouts(limit: HKObjectQueryNoLimit)
         } catch {

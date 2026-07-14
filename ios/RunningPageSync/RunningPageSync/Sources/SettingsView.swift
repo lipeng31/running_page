@@ -6,7 +6,16 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Repository") {
+            Section {
+                LabeledContent {
+                    Text(settingsStore.isReady ? "Ready" : "Incomplete")
+                        .foregroundStyle(settingsStore.isReady ? .green : .orange)
+                } label: {
+                    Label("Connection", systemImage: "network")
+                }
+            }
+
+            Section {
                 TextField("Owner", text: $settingsStore.settings.owner)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -19,18 +28,21 @@ struct SettingsView: View {
                 TextField("Workflow file", text: $settingsStore.settings.workflowFileName)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+            } header: {
+                Label("Repository", systemImage: "shippingbox")
             }
 
-            Section("Token") {
-                SecureField("Fine-grained PAT", text: $settingsStore.token)
+            Section {
+                SecureField("Fine-grained token", text: $settingsStore.token)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                Text("Token needs Contents read/write and Actions read/write for this repository.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .textContentType(.password)
+            } header: {
+                Label("Access Token", systemImage: "key")
             }
         }
-        .navigationTitle("Settings")
+        .navigationTitle("GitHub Settings")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") {
@@ -39,10 +51,13 @@ struct SettingsView: View {
                 }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
+                Button {
                     settingsStore.save()
                     dismiss()
+                } label: {
+                    Label("Save", systemImage: "checkmark")
                 }
+                .disabled(!settingsStore.isReady)
             }
         }
     }

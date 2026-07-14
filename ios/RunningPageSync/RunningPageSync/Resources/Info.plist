@@ -20,5 +20,13 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Running Page Sync reads your workouts, routes, heart rate, energy, steps, and running metrics so you can sync a complete workout record to your own GitHub repository.</string>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIRequiresFullScreen</key>
+	<true/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
 </dict>
 </plist>

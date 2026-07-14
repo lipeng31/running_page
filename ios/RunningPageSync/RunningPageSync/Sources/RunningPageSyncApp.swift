@@ -5,6 +5,7 @@ struct RunningPageSyncApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .tint(.green)
         }
     }
 }
