@@ -131,7 +131,7 @@ public struct GitHubClient: Sendable {
 
     private func headers(token: String) -> [String: String] {
         [
-            "Authorization": "Bearer \(token)",
+            "Authorization": "Bearer \(token.trimmed)",
             "Accept": "application/vnd.github+json",
             "Content-Type": "application/json",
             "X-GitHub-Api-Version": "2022-11-28"

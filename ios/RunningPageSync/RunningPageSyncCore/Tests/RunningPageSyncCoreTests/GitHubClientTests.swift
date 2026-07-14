@@ -57,6 +57,22 @@ final class GitHubClientTests: XCTestCase {
         XCTAssertEqual(inputs?["run_type"], "only_gpx")
     }
 
+    func testTrimsTokenBeforeBuildingAuthorizationHeader() throws {
+        let settings = GitHubSettings(
+            owner: "octo",
+            repository: "run",
+            branch: "master",
+            workflowFileName: "run_data_sync.yml"
+        )
+
+        let request = try GitHubClient().makeDispatchRequest(
+            settings: settings,
+            token: "  secret-token\n"
+        )
+
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer secret-token")
+    }
+
     func testRejectsIncompleteSettings() {
         let settings = GitHubSettings(
             owner: "",
