@@ -40,3 +40,13 @@ def test_changed_file_has_a_different_digest(tmp_path):
     workout_file.write_text("complete version", encoding="utf-8")
 
     assert file_digest(workout_file) != original_digest
+
+
+def test_unversioned_hash_map_is_reprocessed_once(tmp_path):
+    imported_file = tmp_path / "imported.json"
+    imported_file.write_text(
+        json.dumps({"workout.gpx": "old-content-hash"}),
+        encoding="utf-8",
+    )
+
+    assert load_synced_file_hashes(imported_file) == {"workout.gpx": None}
