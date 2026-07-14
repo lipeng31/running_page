@@ -15,10 +15,10 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Running Page Sync reads your running workouts and routes so you can sync them to your own GitHub repository.</string>
+	<string>Running Page Sync reads your workouts, routes, heart rate, energy, steps, and running metrics so you can sync a complete workout record to your own GitHub repository.</string>
 </dict>
 </plist>

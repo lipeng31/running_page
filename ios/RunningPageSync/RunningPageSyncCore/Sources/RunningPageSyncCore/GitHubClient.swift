@@ -41,7 +41,8 @@ public struct GitHubClient: Sendable {
         token: String,
         path: String,
         content: Data,
-        message: String
+        message: String,
+        existingSHA: String? = nil
     ) throws -> URLRequest {
         try validate(settings: settings, token: token)
 
@@ -54,7 +55,8 @@ public struct GitHubClient: Sendable {
         let body = UploadBody(
             message: message,
             content: content.base64EncodedString(),
-            branch: settings.branch.trimmed
+            branch: settings.branch.trimmed,
+            sha: existingSHA
         )
 
         var request = URLRequest(url: url)
@@ -93,12 +95,18 @@ public struct GitHubClient: Sendable {
         content: Data,
         message: String
     ) async throws {
+        let existingSHA = try await existingContentSHA(
+            settings: settings,
+            token: token,
+            path: path
+        )
         let request = try makeUploadRequest(
             settings: settings,
             token: token,
             path: path,
             content: content,
-            message: message
+            message: message,
+            existingSHA: existingSHA
         )
         try await send(request: request, validStatusCodes: 200...201)
     }
@@ -118,6 +126,40 @@ public struct GitHubClient: Sendable {
         guard !token.trimmed.isEmpty else {
             throw WorkoutSyncError.missingToken
         }
+    }
+
+    private func existingContentSHA(
+        settings: GitHubSettings,
+        token: String,
+        path: String
+    ) async throws -> String? {
+        try validate(settings: settings, token: token)
+        let cleanPath = path.split(separator: "/").map(String.init).joined(separator: "/")
+        let baseURL = try apiURL(settings: settings, path: "contents/\(cleanPath)")
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            throw WorkoutSyncError.incompleteSettings
+        }
+        components.queryItems = [
+            URLQueryItem(name: "ref", value: settings.branch.trimmed)
+        ]
+        guard let url = components.url else {
+            throw WorkoutSyncError.incompleteSettings
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.allHTTPHeaderFields = headers(token: token)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw WorkoutSyncError.invalidGitHubResponse(statusCode: -1)
+        }
+        if httpResponse.statusCode == 404 {
+            return nil
+        }
+        guard httpResponse.statusCode == 200 else {
+            throw WorkoutSyncError.invalidGitHubResponse(statusCode: httpResponse.statusCode)
+        }
+        return try JSONDecoder().decode(ContentResponse.self, from: data).sha
     }
 
     private func apiURL(settings: GitHubSettings, path: String) throws -> URL {
@@ -156,6 +198,11 @@ private struct UploadBody: Encodable {
     let message: String
     let content: String
     let branch: String
+    let sha: String?
+}
+
+private struct ContentResponse: Decodable {
+    let sha: String
 }
 
 private struct DispatchBody: Encodable {

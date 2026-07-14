@@ -14,7 +14,8 @@ final class GitHubClientTests: XCTestCase {
             token: "secret-token",
             path: "GPX_OUT/2026-09-03-apple-workout.gpx",
             content: Data("hello".utf8),
-            message: "Add Apple Workout GPX"
+            message: "Add Apple Workout GPX",
+            existingSHA: "existing-content-sha"
         )
 
         XCTAssertEqual(request.httpMethod, "PUT")
@@ -30,6 +31,7 @@ final class GitHubClientTests: XCTestCase {
         XCTAssertEqual(object?["message"] as? String, "Add Apple Workout GPX")
         XCTAssertEqual(object?["branch"] as? String, "master")
         XCTAssertEqual(object?["content"] as? String, Data("hello".utf8).base64EncodedString())
+        XCTAssertEqual(object?["sha"] as? String, "existing-content-sha")
     }
 
     func testBuildsWorkflowDispatchRequest() throws {

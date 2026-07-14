@@ -30,11 +30,11 @@ final class SyncCoordinator: ObservableObject {
         defer { isSyncing = false }
 
         do {
-            setMessage("Reading workout route...", isError: false)
-            let locations = try await healthService.loadRouteLocations(for: workout)
+            setMessage("Reading route and workout metrics...", isError: false)
+            let workoutData = try await healthService.loadWorkoutData(for: workout)
 
-            setMessage("Creating GPX...", isError: false)
-            let gpx = try exporter.export(workout: workout, locations: locations)
+            setMessage("Creating complete GPX export...", isError: false)
+            let gpx = try exporter.export(workout: workout, data: workoutData)
             let path = "GPX_OUT/\(fileName(for: workout))"
 
             setMessage("Uploading GPX to GitHub...", isError: false)
@@ -50,7 +50,10 @@ final class SyncCoordinator: ObservableObject {
             try await githubClient.dispatchWorkflow(settings: settings, token: token)
 
             syncedStore.markSynced(workout.id)
-            setMessage("Sync started in GitHub Actions.", isError: false)
+            setMessage(
+                "Sync started with \(workoutData.metrics.count) metric types.",
+                isError: false
+            )
         } catch {
             setMessage(error.localizedDescription, isError: true)
         }

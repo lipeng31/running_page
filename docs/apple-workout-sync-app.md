@@ -2,7 +2,7 @@
 
 `ios/RunningPageSync` is a self-use iOS companion app for syncing Apple Watch runs recorded with Apple Workout into this running_page repository without Strava.
 
-The app reads Apple Health workouts and workout routes through HealthKit, exports the selected route as GPX, uploads it to `GPX_OUT/`, then triggers `run_data_sync.yml` with `run_type=only_gpx`.
+The app reads Apple Health workouts, routes, metrics, metadata, and events through HealthKit. It exports the selected workout as an extended GPX file, uploads it to `GPX_OUT/`, then triggers `run_data_sync.yml` with `run_type=only_gpx`.
 
 ## Requirements
 
@@ -73,7 +73,11 @@ Tap Save.
 ## Notes
 
 - The first version is manual. It does not run in the background after every workout.
-- Route, time, distance, and elevation are exported through GPX.
-- Heart rate is not included in the first version.
+- Standard GPX fields contain the route, timestamps, and elevation.
+- Garmin-compatible track-point extensions contain heart rate so the existing running_page importer can calculate and display average heart rate.
+- Running Page Sync extensions preserve HealthKit summary statistics and raw samples for heart rate, energy, distance, steps, flights climbed, running power, speed, ground contact time, stride length, vertical oscillation, physical effort, recovery heart rate, VO2 max, and workout effort score when those values exist.
+- Workout metadata, source and device information, pause/lap events, and Core Location accuracy, speed, and course values are also retained.
+- HealthKit only returns data types that the user authorizes and that Apple Workout recorded for the selected run.
+- Sync Again updates the existing GPX file instead of creating a duplicate activity.
 - If the selected workout has no route points, the app shows an error and does not upload anything.
 - Running on a simulator is not useful because HealthKit workout data and route authorization must be tested on a real iPhone.
