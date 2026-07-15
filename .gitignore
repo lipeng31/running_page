@@ -29,3 +29,6 @@ route.svg
 
 .omc/
 .claude/
+
+# Raw workout routes are temporary inputs, not source-controlled data.
+/GPX_OUT/*.gpx

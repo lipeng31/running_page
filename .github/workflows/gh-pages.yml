@@ -59,7 +59,6 @@ jobs:
           path: |
             activities
             assets
-            GPX_OUT
             TCX_OUT
             FIT_OUT
             Workouts

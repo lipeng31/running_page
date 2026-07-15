@@ -176,6 +176,8 @@ public enum WorkoutSyncError: Error, Equatable, LocalizedError {
     case incompleteSettings
     case missingToken
     case activityInventoryUnavailable
+    case invalidArchiveEntry
+    case archiveTooLarge
     case invalidGitHubResponse(statusCode: Int)
 
     public var errorDescription: String? {
@@ -192,6 +194,10 @@ public enum WorkoutSyncError: Error, Equatable, LocalizedError {
             "GitHub token is missing."
         case .activityInventoryUnavailable:
             "The current running page activity inventory could not be loaded."
+        case .invalidArchiveEntry:
+            "The GPX archive contains an invalid file name."
+        case .archiveTooLarge:
+            "The GPX archive is too large to upload."
         case let .invalidGitHubResponse(statusCode):
             "GitHub request failed with status \(statusCode)."
         }

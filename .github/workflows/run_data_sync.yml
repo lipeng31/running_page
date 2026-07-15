@@ -32,6 +32,11 @@ on:
           - intervals_icu
           - db_updater
           - pass
+      release_asset_id:
+        description: 'Temporary private Release asset containing a GPX ZIP archive.'
+        required: false
+        default: ''
+        type: string
   schedule:
     - cron: '0 0 * * *'
   push:
@@ -79,6 +84,8 @@ jobs:
   sync:
     name: Sync
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       SAVE_DATA_IN_GITHUB_CACHE: ${{ steps.set_output.outputs.SAVE_DATA_IN_GITHUB_CACHE }}
       DATA_CACHE_PREFIX: ${{ steps.set_output.outputs.DATA_CACHE_PREFIX }}
@@ -129,7 +136,6 @@ jobs:
           path: |
             activities
             assets
-            GPX_OUT
             TCX_OUT
             FIT_OUT
             Workouts
@@ -141,12 +147,11 @@ jobs:
             ${{ env.DATA_CACHE_PREFIX }}-${{ github.sha }}-
             ${{ env.DATA_CACHE_PREFIX }}-
 
-      # The data cache contains generated assets and uploaded GPX files. Restore
-      # repository-owned inputs after the cache step so stale cached copies do
-      # not replace the current commit's source files.
-      - name: Restore repository inputs from git
+      # The data cache contains generated assets. Restore repository-owned
+      # source files so stale cached copies cannot replace the current commit.
+      - name: Restore repository source files from git
         if: env.SAVE_DATA_IN_GITHUB_CACHE == 'true'
-        run: git checkout -- assets/index.tsx GPX_OUT
+        run: git checkout -- assets/index.tsx
 
       - name: Resolve run type
         id: resolve_run_type
@@ -219,6 +224,33 @@ jobs:
         # make garmin secret string 'python run_page/garmin_sync_cn_global.py ${email} ${password} --is-cn'
         # If you only want to sync 'type running' add args --only-run, default script is to sync all data (rides and runs).
         # python run_page/garmin_sync_cn_global.py ${{ secrets.GARMIN_SECRET_STRING_CN }} ${{ secrets.GARMIN_SECRET_STRING }}  --only-run
+
+      - name: Prepare temporary GPX input directory
+        if: steps.resolve_run_type.outputs.value == 'only_gpx'
+        run: |
+          rm -rf GPX_OUT
+          mkdir -p GPX_OUT
+          touch GPX_OUT/.gitkeep
+
+      - name: Download temporary Apple Workout archive
+        if: steps.resolve_run_type.outputs.value == 'only_gpx' && inputs.release_asset_id != ''
+        env:
+          RELEASE_ASSET_ID: ${{ inputs.release_asset_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ! "$RELEASE_ASSET_ID" =~ ^[0-9]+$ ]]; then
+            echo "release_asset_id must be numeric" >&2
+            exit 1
+          fi
+
+          archive="$RUNNER_TEMP/apple-workouts-$RELEASE_ASSET_ID.zip"
+          curl --fail-with-body --location \
+            --header "Accept: application/octet-stream" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --output "$archive" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$RELEASE_ASSET_ID"
+          python run_page/extract_gpx_archive.py "$archive" GPX_OUT
 
       - name: Run sync Only GPX script
         if: steps.resolve_run_type.outputs.value == 'only_gpx'
@@ -332,6 +364,19 @@ jobs:
           git add .
           git commit -m 'update new runs' || echo 'nothing to commit'
           git push || echo 'nothing to push'
+
+      - name: Delete processed Apple Workout archive
+        if: success() && steps.resolve_run_type.outputs.value == 'only_gpx' && inputs.release_asset_id != ''
+        env:
+          RELEASE_ASSET_ID: ${{ inputs.release_asset_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail-with-body --request DELETE \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$RELEASE_ASSET_ID"
+          find GPX_OUT -type f -name '*.gpx' -delete
 
       - name: Set Output
         id: set_output

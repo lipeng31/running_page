@@ -8,6 +8,7 @@ final class SyncCoordinator: ObservableObject {
     @Published private(set) var messageIsError = false
 
     private let exporter = GPXExporter()
+    private let archiveBuilder = ZipArchiveBuilder()
     private let githubClient = GitHubClient()
     private let inventoryClient = ActivityInventoryClient()
 
@@ -32,20 +33,27 @@ final class SyncCoordinator: ObservableObject {
 
         do {
             setMessage("Reading route and workout metrics...", isError: false)
-            setMessage("Uploading GPX to GitHub...", isError: false)
-            let metricCount = try await upload(
+            let preparedWorkout = try await prepare(
                 workout: workout,
-                settings: settings,
-                token: token,
                 healthService: healthService
+            )
+            setMessage("Uploading a private temporary GPX archive...", isError: false)
+            let releaseAssetID = try await uploadArchive(
+                entries: [preparedWorkout.entry],
+                settings: settings,
+                token: token
             )
 
             setMessage("Triggering running_page sync...", isError: false)
-            try await githubClient.dispatchWorkflow(settings: settings, token: token)
+            try await githubClient.dispatchWorkflow(
+                settings: settings,
+                token: token,
+                releaseAssetID: releaseAssetID
+            )
 
             syncedStore.markSynced(workout.id)
             setMessage(
-                "Sync started with \(metricCount) metric types.",
+                "Sync started with \(preparedWorkout.metricCount) metric types.",
                 isError: false
             )
         } catch {
@@ -83,22 +91,19 @@ final class SyncCoordinator: ObservableObject {
                 return
             }
 
-            var uploadedCount = 0
+            var preparedWorkouts: [PreparedWorkout] = []
             var failures: [String] = []
             for (index, workout) in missingWorkouts.enumerated() {
                 setMessage(
-                    "Uploading missing run \(index + 1) of \(missingWorkouts.count)...",
+                    "Preparing missing run \(index + 1) of \(missingWorkouts.count)...",
                     isError: false
                 )
                 do {
-                    _ = try await upload(
+                    let preparedWorkout = try await prepare(
                         workout: workout,
-                        settings: settings,
-                        token: token,
                         healthService: healthService
                     )
-                    syncedStore.markSynced(workout.id)
-                    uploadedCount += 1
+                    preparedWorkouts.append(preparedWorkout)
                 } catch {
                     if let syncError = error as? WorkoutSyncError,
                        case let .invalidGitHubResponse(statusCode) = syncError,
@@ -111,22 +116,40 @@ final class SyncCoordinator: ObservableObject {
                 }
             }
 
-            guard uploadedCount > 0 else {
+            guard !preparedWorkouts.isEmpty else {
                 setMessage(
-                    "No missing runs were uploaded. \(failures.first ?? "Unknown error.")",
+                    "No missing runs were prepared. \(failures.first ?? "Unknown error.")",
                     isError: true
                 )
                 return
             }
 
+            setMessage(
+                "Uploading one private archive with \(preparedWorkouts.count) runs...",
+                isError: false
+            )
+            let releaseAssetID = try await uploadArchive(
+                entries: preparedWorkouts.map(\.entry),
+                settings: settings,
+                token: token
+            )
+
             setMessage("Triggering running_page sync...", isError: false)
-            try await githubClient.dispatchWorkflow(settings: settings, token: token)
+            try await githubClient.dispatchWorkflow(
+                settings: settings,
+                token: token,
+                releaseAssetID: releaseAssetID
+            )
+
+            for preparedWorkout in preparedWorkouts {
+                syncedStore.markSynced(preparedWorkout.workout.id)
+            }
 
             if failures.isEmpty {
-                setMessage("Sync started for \(uploadedCount) missing runs.", isError: false)
+                setMessage("Sync started for \(preparedWorkouts.count) missing runs.", isError: false)
             } else {
                 setMessage(
-                    "Sync started for \(uploadedCount) runs; \(failures.count) failed. \(failures[0])",
+                    "Sync started for \(preparedWorkouts.count) runs; \(failures.count) failed. \(failures[0])",
                     isError: true
                 )
             }
@@ -135,23 +158,34 @@ final class SyncCoordinator: ObservableObject {
         }
     }
 
-    private func upload(
+    private func prepare(
         workout: WorkoutSummary,
-        settings: GitHubSettings,
-        token: String,
         healthService: HealthKitWorkoutService
-    ) async throws -> Int {
+    ) async throws -> PreparedWorkout {
         let workoutData = try await healthService.loadWorkoutData(for: workout)
         let gpx = try exporter.export(workout: workout, data: workoutData)
-        let path = "GPX_OUT/\(fileName(for: workout))"
-        try await githubClient.uploadGPX(
+        return PreparedWorkout(
+            workout: workout,
+            entry: ZipEntry(
+                name: fileName(for: workout),
+                data: Data(gpx.utf8)
+            ),
+            metricCount: workoutData.metrics.count
+        )
+    }
+
+    private func uploadArchive(
+        entries: [ZipEntry],
+        settings: GitHubSettings,
+        token: String
+    ) async throws -> Int {
+        let archive = try archiveBuilder.archive(entries: entries)
+        return try await githubClient.uploadGPXArchive(
             settings: settings,
             token: token,
-            path: path,
-            content: Data(gpx.utf8),
-            message: "Add Apple Workout GPX \(workout.startDate.formatted(date: .numeric, time: .shortened))"
+            fileName: "apple-workouts-\(UUID().uuidString.lowercased()).zip",
+            archive: archive
         )
-        return workoutData.metrics.count
     }
 
     private func fileName(for workout: WorkoutSummary) -> String {
@@ -163,4 +197,10 @@ final class SyncCoordinator: ObservableObject {
         let suffix = workout.id.prefix(8)
         return "\(timestamp)-apple-workout-\(suffix).gpx"
     }
+}
+
+private struct PreparedWorkout {
+    let workout: WorkoutSummary
+    let entry: ZipEntry
+    let metricCount: Int
 }
