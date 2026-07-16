@@ -132,10 +132,13 @@ jobs:
       - name: Cache Data Files
         if: env.SAVE_DATA_IN_GITHUB_CACHE == 'true'
         uses: actions/cache@v4
+        # Keep GPX_OUT in this definition for compatibility with existing
+        # complete caches. Its GPX files are cleared before the cache is saved.
         with:
           path: |
             activities
             assets
+            GPX_OUT
             TCX_OUT
             FIT_OUT
             Workouts
@@ -152,6 +155,37 @@ jobs:
       - name: Restore repository source files from git
         if: env.SAVE_DATA_IN_GITHUB_CACHE == 'true'
         run: git checkout -- assets/index.tsx
+
+      - name: Validate restored activity data
+        if: env.SAVE_DATA_IN_GITHUB_CACHE == 'true'
+        run: |
+          python - <<'PY'
+          import json
+          import sqlite3
+          from pathlib import Path
+
+          database_path = Path("run_page/data.db")
+          activities_path = Path("src/static/activities.json")
+          if not database_path.is_file() or not activities_path.is_file():
+              raise SystemExit("Refusing to sync without both data.db and activities.json")
+
+          with sqlite3.connect(database_path) as connection:
+              database_count = connection.execute(
+                  "SELECT COUNT(*) FROM activities"
+              ).fetchone()[0]
+          with activities_path.open(encoding="utf-8") as activities_file:
+              activities_count = len(json.load(activities_file))
+
+          print(
+              f"Restored activity counts: database={database_count}, "
+              f"json={activities_count}"
+          )
+          if database_count < activities_count:
+              raise SystemExit(
+                  "Refusing to replace a more complete activities.json with "
+                  "an older data.db"
+              )
+          PY
 
       - name: Resolve run type
         id: resolve_run_type
@@ -226,7 +260,6 @@ jobs:
         # python run_page/garmin_sync_cn_global.py ${{ secrets.GARMIN_SECRET_STRING_CN }} ${{ secrets.GARMIN_SECRET_STRING }}  --only-run
 
       - name: Prepare temporary GPX input directory
-        if: steps.resolve_run_type.outputs.value == 'only_gpx'
         run: |
           rm -rf GPX_OUT
           mkdir -p GPX_OUT

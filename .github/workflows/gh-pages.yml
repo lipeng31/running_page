@@ -55,10 +55,13 @@ jobs:
       - name: Cache Data Files
         if: inputs.save_data_in_github_cache
         uses: actions/cache@v4
+        # Keep this list aligned with run_data_sync.yml so both jobs use the
+        # same cache version. Synced GPX files are not retained in the cache.
         with:
           path: |
             activities
             assets
+            GPX_OUT
             TCX_OUT
             FIT_OUT
             Workouts
