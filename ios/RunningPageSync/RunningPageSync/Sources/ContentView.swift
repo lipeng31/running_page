@@ -85,6 +85,20 @@ struct ContentView: View {
                         healthService: healthService,
                         syncedStore: syncedStore
                     )
+                } else if let repairDate = targetedRepairDate(),
+                          let workout = healthService.workouts.min(by: {
+                              abs($0.startDate.timeIntervalSince(repairDate))
+                                  < abs($1.startDate.timeIntervalSince(repairDate))
+                          }),
+                          abs(workout.startDate.timeIntervalSince(repairDate)) <= 5 * 60,
+                          settingsStore.isReady {
+                    await syncCoordinator.sync(
+                        workout: workout,
+                        settings: settingsStore.settings,
+                        token: settingsStore.token,
+                        healthService: healthService,
+                        syncedStore: syncedStore
+                    )
                 }
             }
         }
@@ -269,6 +283,14 @@ struct ContentView: View {
                 syncedStore: syncedStore
             )
         }
+    }
+
+    private func targetedRepairDate() -> Date? {
+        let prefix = "--repair-workout-start="
+        guard let value = CommandLine.arguments.first(where: { $0.hasPrefix(prefix) }) else {
+            return nil
+        }
+        return ISO8601DateFormatter().date(from: String(value.dropFirst(prefix.count)))
     }
 }
 

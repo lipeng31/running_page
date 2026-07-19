@@ -2,6 +2,48 @@ import XCTest
 @testable import RunningPageSyncCore
 
 final class GPXExporterTests: XCTestCase {
+    func testRouteSelectorKeepsNonOverlappingSegments() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let first = [
+            routeLocation(latitude: 39, longitude: 116, date: start),
+            routeLocation(latitude: 39.001, longitude: 116, date: start.addingTimeInterval(60))
+        ]
+        let second = [
+            routeLocation(latitude: 39.002, longitude: 116, date: start.addingTimeInterval(120)),
+            routeLocation(latitude: 39.003, longitude: 116, date: start.addingTimeInterval(180))
+        ]
+
+        let selected = RouteLocationSelector.select(
+            segments: [second, first],
+            expectedDistanceMeters: 350
+        )
+
+        XCTAssertEqual(selected.count, 4)
+        XCTAssertEqual(selected.map(\.timestamp), selected.map(\.timestamp).sorted())
+    }
+
+    func testRouteSelectorChoosesPlausibleOverlappingRoute() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let plausible = [
+            routeLocation(latitude: 39, longitude: 116, date: start),
+            routeLocation(latitude: 39.001, longitude: 116, date: start.addingTimeInterval(60)),
+            routeLocation(latitude: 39.002, longitude: 116, date: start.addingTimeInterval(120))
+        ]
+        let jumping = [
+            routeLocation(latitude: 39, longitude: 116, date: start),
+            routeLocation(latitude: 39.01, longitude: 116, date: start.addingTimeInterval(40)),
+            routeLocation(latitude: 39, longitude: 116, date: start.addingTimeInterval(80)),
+            routeLocation(latitude: 39.01, longitude: 116, date: start.addingTimeInterval(120))
+        ]
+
+        let selected = RouteLocationSelector.select(
+            segments: [jumping, plausible],
+            expectedDistanceMeters: 225
+        )
+
+        XCTAssertEqual(selected, plausible)
+    }
+
     func testExportsWorkoutRouteAsEscapedGPX() throws {
         let workout = WorkoutSummary(
             id: "workout-1",
@@ -162,4 +204,14 @@ final class GPXExporterTests: XCTestCase {
         XCTAssertTrue(gpx.contains("<rps:speed>3.4</rps:speed>"))
         XCTAssertTrue(gpx.contains(#"name="running_power" unit="W""#))
     }
+}
+
+private func routeLocation(latitude: Double, longitude: Double, date: Date) -> RouteLocation {
+    RouteLocation(
+        latitude: latitude,
+        longitude: longitude,
+        altitude: 0,
+        timestamp: date,
+        horizontalAccuracy: 5
+    )
 }

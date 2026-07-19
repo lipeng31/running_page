@@ -168,14 +168,18 @@ final class HealthKitWorkoutService: ObservableObject {
             healthStore.execute(query)
         }
 
-        var output: [RouteLocation] = []
+        var routeSegments: [[RouteLocation]] = []
         for route in routes {
-            output.append(contentsOf: try await readLocations(from: route))
+            routeSegments.append(try await readLocations(from: route))
         }
+        let output = RouteLocationSelector.select(
+            segments: routeSegments,
+            expectedDistanceMeters: distance(for: workout)
+        )
         guard !output.isEmpty else {
             throw WorkoutSyncError.noRoute
         }
-        return output.sorted { $0.timestamp < $1.timestamp }
+        return output
     }
 
     private func readLocations(from route: HKWorkoutRoute) async throws -> [RouteLocation] {
