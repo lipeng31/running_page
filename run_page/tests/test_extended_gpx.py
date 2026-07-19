@@ -17,6 +17,9 @@ def test_running_page_imports_extended_gpx_summary_and_heart_rate(tmp_path):
      xmlns:rps="https://github.com/lipeng31/running_page/xmlschemas/WorkoutExtension/v1">
   <metadata><time>2026-07-14T00:00:00Z</time></metadata>
   <extensions>
+    <rps:workout_id>health-workout-123</rps:workout_id>
+    <rps:start_time>2026-07-13T23:59:50Z</rps:start_time>
+    <rps:end_time>2026-07-14T01:01:30Z</rps:end_time>
     <rps:distance>10000</rps:distance>
     <rps:moving_time>3600</rps:moving_time>
     <rps:elapsed_time>3700</rps:elapsed_time>
@@ -52,6 +55,13 @@ def test_running_page_imports_extended_gpx_summary_and_heart_rate(tmp_path):
     track.load_gpx(gpx_file)
 
     assert track.average_heartrate == 149.5
+    assert track.source_id == "health-workout-123"
+    assert track.start_time == datetime.datetime(
+        2026, 7, 13, 23, 59, 50, tzinfo=datetime.timezone.utc
+    )
+    assert track.end_time == datetime.datetime(
+        2026, 7, 14, 1, 1, 30, tzinfo=datetime.timezone.utc
+    )
     assert track.length == 10_000
     assert track.moving_dict["moving_time"] == datetime.timedelta(seconds=3_600)
     assert track.moving_dict["elapsed_time"] == datetime.timedelta(seconds=3_700)
@@ -90,3 +100,28 @@ def test_running_page_imports_route_less_workout_summary(tmp_path):
     assert track.average_heartrate == 145
     assert track.moving_dict["moving_time"] == datetime.timedelta(seconds=1_800)
     assert track.moving_dict["elapsed_time"] == datetime.timedelta(seconds=1_810)
+
+
+def test_running_page_keeps_every_exported_route_point(tmp_path):
+    gpx_file = tmp_path / "complete-route.gpx"
+    points = "\n".join(
+        f'''<trkpt lat="1.{index:07d}" lon="103.{(index * index):07d}">
+        <time>2026-07-14T00:00:{index:02d}Z</time></trkpt>'''
+        for index in range(10)
+    )
+    gpx_file.write_text(
+        f'''<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RunningPageSync"
+     xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>Complete Route</name><type>running</type><trkseg>
+    {points}
+  </trkseg></trk>
+</gpx>
+''',
+        encoding="utf-8",
+    )
+
+    track = Track()
+    track.load_gpx(gpx_file)
+
+    assert len(track.polyline_container) == 10

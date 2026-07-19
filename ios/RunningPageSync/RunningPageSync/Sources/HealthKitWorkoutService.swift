@@ -137,6 +137,18 @@ final class HealthKitWorkoutService: ObservableObject {
         )
     }
 
+    func loadRouteRepairData(for workout: WorkoutSummary) async throws -> WorkoutExportData {
+        guard let hkWorkout = workoutByID[workout.id] else {
+            throw WorkoutSyncError.noRoute
+        }
+        let locations = try await loadRouteLocations(for: hkWorkout)
+        return WorkoutExportData(
+            locations: locations,
+            metadata: workoutMetadata(for: hkWorkout),
+            events: workoutEvents(for: hkWorkout)
+        )
+    }
+
     private func loadRouteLocations(for workout: HKWorkout) async throws -> [RouteLocation] {
         let routeType = HKSeriesType.workoutRoute()
         let predicate = HKQuery.predicateForObjects(from: workout)

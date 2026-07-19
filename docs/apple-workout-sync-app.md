@@ -72,6 +72,20 @@ Tap Save.
 8. GitHub Actions downloads and validates the archive, imports its GPX files, updates `src/static/activities.json`, regenerates SVG assets, and publishes the running page.
 9. After a successful import, GitHub Actions deletes the temporary Release asset. GPX files are neither committed nor retained in the Action cache.
 
+## Repair Historical Routes
+
+Use **Repair All Routes** when older published routes have lost their beginning
+or ending. The app re-reads every route still available in HealthKit, uploads
+small private batches, and starts one rebuild Action containing all batches.
+The importer matches HealthKit workouts to legacy provider records by start
+time and distance, so it replaces the damaged route without changing the old
+activity ID or creating a duplicate. Workouts for which HealthKit has no route
+are left unchanged.
+
+Keep the app open while it reads and uploads the batches. After the rebuild is
+triggered, the app can be closed while GitHub Actions completes the import and
+deployment.
+
 ## Notes
 
 - The first version is manual. It does not run in the background after every workout.
@@ -84,4 +98,5 @@ Tap Save.
 - The draft inbox Release remains unpublished and normally contains no assets between successful syncs. A failed workflow intentionally leaves its asset available for diagnosis or retry.
 - Workouts without route points are exported with their duration, distance, metrics, metadata, and events. This supports indoor runs when Apple Workout did not record a GPS route.
 - Batch matching requires the repository's GitHub Pages site and Vite manifest to be publicly readable.
+- Historical repair does not simplify GPX points and never invents a route for an indoor workout.
 - Running on a simulator is not useful because HealthKit workout data and route authorization must be tested on a real iPhone.

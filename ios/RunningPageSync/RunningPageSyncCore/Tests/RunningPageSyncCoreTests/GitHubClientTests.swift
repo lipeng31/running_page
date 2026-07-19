@@ -80,6 +80,21 @@ final class GitHubClientTests: XCTestCase {
         XCTAssertEqual(inputs?["release_asset_id"], "987")
     }
 
+    func testBuildsFullRepairDispatchRequestWithReleaseAssets() throws {
+        let request = try GitHubClient().makeDispatchRequest(
+            settings: settings,
+            token: "secret-token",
+            releaseAssetIDs: [101, 202, 303]
+        )
+
+        let body = try XCTUnwrap(request.httpBody)
+        let object = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+        let inputs = object?["inputs"] as? [String: String]
+        XCTAssertEqual(inputs?["run_type"], "only_gpx")
+        XCTAssertNil(inputs?["release_asset_id"])
+        XCTAssertEqual(inputs?["release_asset_ids"], "101,202,303")
+    }
+
     func testTrimsTokenBeforeBuildingAuthorizationHeader() throws {
         let request = try GitHubClient().makeDispatchRequest(
             settings: settings,

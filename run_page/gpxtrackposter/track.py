@@ -56,6 +56,7 @@ class Track:
         self.type = "Run"
         self.subtype = None  # for fit file
         self.device = ""
+        self.source_id = None
 
     def load_gpx(self, file_name):
         """
@@ -222,11 +223,21 @@ class Track:
             return 0
 
     def _load_gpx_data(self, gpx):
-        self.start_time, self.end_time = gpx.get_time_bounds()
+        route_start_time, route_end_time = gpx.get_time_bounds()
+        start_time_str = self._load_gpx_extensions_item(gpx, "start_time")
+        end_time_str = self._load_gpx_extensions_item(gpx, "end_time")
+        self.start_time = (
+            datetime.datetime.fromisoformat(start_time_str)
+            if start_time_str
+            else route_start_time
+        )
+        self.end_time = (
+            datetime.datetime.fromisoformat(end_time_str)
+            if end_time_str
+            else route_end_time
+        )
         if self.start_time is None or self.end_time is None:
             # may be it's treadmill run, so we just use the start and end time of the extensions
-            start_time_str = self._load_gpx_extensions_item(gpx, "start_time")
-            end_time_str = self._load_gpx_extensions_item(gpx, "end_time")
             if start_time_str:
                 self.start_time = datetime.datetime.fromisoformat(start_time_str)
             if end_time_str:
@@ -246,7 +257,6 @@ class Track:
         for t in gpx.tracks:
             for s in t.segments:
                 moving_time += self._calc_moving_time(s.points, 10)
-        gpx.simplify()
         if self.length == 0:
             elapsed_time = max(
                 0,
@@ -345,6 +355,7 @@ class Track:
             if gpx_extensions.get("distance") is None
             else float(gpx_extensions.get("distance"))
         )
+        self.source_id = gpx_extensions.get("workout_id") or self.source_id
         self.average_heartrate = (
             self.average_heartrate
             if gpx_extensions.get("average_hr") is None
@@ -497,6 +508,7 @@ class Track:
             "elevation_gain": (int(self.elevation_gain) if self.elevation_gain else 0),
             "map": run_map(self.polyline_str),
             "start_latlng": self.start_latlng,
+            "source_id": self.source_id,
         }
         d.update(self.moving_dict)
         # return a nametuple that can use . to get attr

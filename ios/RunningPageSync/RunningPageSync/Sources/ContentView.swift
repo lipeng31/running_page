@@ -7,6 +7,7 @@ struct ContentView: View {
     @StateObject private var syncedStore = SyncedWorkoutStore()
     @StateObject private var syncCoordinator = SyncCoordinator()
     @State private var showingSettings = false
+    @State private var showingRouteRepairConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -56,11 +57,35 @@ struct ContentView: View {
                     SettingsView(settingsStore: settingsStore)
                 }
             }
+            .confirmationDialog(
+                "Rebuild every available route?",
+                isPresented: $showingRouteRepairConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Repair All Routes", role: .destructive) {
+                    repairAllRoutes()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(
+                    "This re-exports every readable HealthKit route, replaces damaged legacy routes in one GitHub Action, and may take several minutes. Workouts without HealthKit route data are left unchanged."
+                )
+            }
             .refreshable {
                 await healthService.loadRecentRunningWorkouts()
             }
             .task {
                 await healthService.authorizeAndLoad()
+                if CommandLine.arguments.contains("--repair-all-routes"),
+                   settingsStore.isReady {
+                    await syncCoordinator.repairAllRoutes(
+                        workouts: healthService.workouts,
+                        settings: settingsStore.settings,
+                        token: settingsStore.token,
+                        healthService: healthService,
+                        syncedStore: syncedStore
+                    )
+                }
             }
         }
     }
@@ -155,6 +180,23 @@ struct ContentView: View {
                     !settingsStore.isReady
             )
 
+            Button {
+                showingRouteRepairConfirmation = true
+            } label: {
+                Label("Repair All Routes", systemImage: "map.fill")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .tint(.orange)
+            .disabled(
+                syncCoordinator.isSyncing ||
+                    healthService.isLoading ||
+                    healthService.workouts.isEmpty ||
+                    !settingsStore.isReady
+            )
+
             HStack(spacing: 12) {
                 Button {
                     Task {
@@ -209,6 +251,18 @@ struct ContentView: View {
         Task {
             await syncCoordinator.sync(
                 workout: workout,
+                settings: settingsStore.settings,
+                token: settingsStore.token,
+                healthService: healthService,
+                syncedStore: syncedStore
+            )
+        }
+    }
+
+    private func repairAllRoutes() {
+        Task {
+            await syncCoordinator.repairAllRoutes(
+                workouts: healthService.workouts,
                 settings: settingsStore.settings,
                 token: settingsStore.token,
                 healthService: healthService,

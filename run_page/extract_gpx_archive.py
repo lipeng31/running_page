@@ -32,6 +32,7 @@ def extract_gpx_archive(archive_path: Path, destination: Path) -> list[Path]:
                 or len(path.parts) != 1
                 or path.suffix.lower() != ".gpx"
                 or path.name in seen
+                or (destination / path.name).exists()
             ):
                 raise ValueError(f"Unsafe archive entry: {entry.filename}")
 

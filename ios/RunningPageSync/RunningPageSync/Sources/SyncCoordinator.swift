@@ -1,5 +1,6 @@
 import Foundation
 import RunningPageSyncCore
+import UIKit
 
 @MainActor
 final class SyncCoordinator: ObservableObject {
@@ -11,6 +12,7 @@ final class SyncCoordinator: ObservableObject {
     private let archiveBuilder = ZipArchiveBuilder()
     private let githubClient = GitHubClient()
     private let inventoryClient = ActivityInventoryClient()
+    private let repairBatchSize = 25
 
     func setMessage(_ message: String, isError: Bool) {
         self.message = message
@@ -158,6 +160,109 @@ final class SyncCoordinator: ObservableObject {
         }
     }
 
+    func repairAllRoutes(
+        workouts: [WorkoutSummary],
+        settings: GitHubSettings,
+        token: String,
+        healthService: HealthKitWorkoutService,
+        syncedStore: SyncedWorkoutStore
+    ) async {
+        guard !isSyncing else {
+            return
+        }
+
+        isSyncing = true
+        UIApplication.shared.isIdleTimerDisabled = true
+        defer {
+            isSyncing = false
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
+
+        do {
+            guard !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw WorkoutSyncError.missingToken
+            }
+
+            let orderedWorkouts = workouts.sorted { $0.startDate < $1.startDate }
+            var entries: [ZipEntry] = []
+            var releaseAssetIDs: [Int] = []
+            var preparedWorkouts: [WorkoutSummary] = []
+            var skippedWithoutRoute = 0
+            var failures: [String] = []
+
+            for (index, workout) in orderedWorkouts.enumerated() {
+                setMessage(
+                    "Reading complete route \(index + 1) of \(orderedWorkouts.count)...",
+                    isError: false
+                )
+                do {
+                    let preparedWorkout = try await prepareRouteRepair(
+                        workout: workout,
+                        healthService: healthService
+                    )
+                    entries.append(preparedWorkout.entry)
+                    preparedWorkouts.append(workout)
+                } catch WorkoutSyncError.noRoute {
+                    skippedWithoutRoute += 1
+                } catch {
+                    failures.append(
+                        "\(workout.startDate.formatted(date: .numeric, time: .shortened)): \(error.localizedDescription)"
+                    )
+                }
+
+                if entries.count == repairBatchSize ||
+                    (!entries.isEmpty && index == orderedWorkouts.count - 1) {
+                    setMessage(
+                        "Uploading repair archive \(releaseAssetIDs.count + 1)...",
+                        isError: false
+                    )
+                    let releaseAssetID = try await uploadArchive(
+                        entries: entries,
+                        settings: settings,
+                        token: token
+                    )
+                    releaseAssetIDs.append(releaseAssetID)
+                    entries.removeAll(keepingCapacity: true)
+                }
+            }
+
+            guard !releaseAssetIDs.isEmpty else {
+                setMessage(
+                    "No HealthKit routes were available to repair. \(failures.first ?? "")",
+                    isError: true
+                )
+                return
+            }
+
+            setMessage(
+                "Triggering one full route rebuild from \(releaseAssetIDs.count) archives...",
+                isError: false
+            )
+            try await githubClient.dispatchWorkflow(
+                settings: settings,
+                token: token,
+                releaseAssetIDs: releaseAssetIDs
+            )
+
+            for workout in preparedWorkouts {
+                syncedStore.markSynced(workout.id)
+            }
+
+            let skippedText = skippedWithoutRoute > 0
+                ? " \(skippedWithoutRoute) workouts had no HealthKit route and were left unchanged."
+                : ""
+            let failureText = failures.isEmpty
+                ? ""
+                : " \(failures.count) workouts could not be read; first: \(failures[0])"
+            setMessage(
+                "Full rebuild started for \(preparedWorkouts.count) routes. Keep this app installed while the GitHub Action finishes.\(skippedText)\(failureText)",
+                isError: !failures.isEmpty
+            )
+        } catch {
+            setMessage(error.localizedDescription, isError: true)
+        }
+    }
+
     private func prepare(
         workout: WorkoutSummary,
         healthService: HealthKitWorkoutService
@@ -171,6 +276,22 @@ final class SyncCoordinator: ObservableObject {
                 data: Data(gpx.utf8)
             ),
             metricCount: workoutData.metrics.count
+        )
+    }
+
+    private func prepareRouteRepair(
+        workout: WorkoutSummary,
+        healthService: HealthKitWorkoutService
+    ) async throws -> PreparedWorkout {
+        let workoutData = try await healthService.loadRouteRepairData(for: workout)
+        let gpx = try exporter.export(workout: workout, data: workoutData)
+        return PreparedWorkout(
+            workout: workout,
+            entry: ZipEntry(
+                name: fileName(for: workout),
+                data: Data(gpx.utf8)
+            ),
+            metricCount: 0
         )
     }
 

@@ -60,3 +60,17 @@ def test_rejects_duplicate_names(tmp_path):
 
     with pytest.raises(ValueError, match="Unsafe archive entry"):
         extract_gpx_archive(archive_path, tmp_path / "GPX_OUT")
+
+
+def test_rejects_name_already_extracted_from_another_archive(tmp_path):
+    first_archive = tmp_path / "first.zip"
+    second_archive = tmp_path / "second.zip"
+    destination = tmp_path / "GPX_OUT"
+    write_archive(first_archive, [("route.gpx", b"first")])
+    write_archive(second_archive, [("route.gpx", b"second")])
+
+    extract_gpx_archive(first_archive, destination)
+
+    with pytest.raises(ValueError, match="Unsafe archive entry"):
+        extract_gpx_archive(second_archive, destination)
+    assert (destination / "route.gpx").read_bytes() == b"first"

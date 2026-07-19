@@ -115,19 +115,34 @@ public struct GitHubClient: Sendable {
         token: String,
         releaseAssetID: Int
     ) throws -> URLRequest {
+        try makeDispatchRequest(
+            settings: settings,
+            token: token,
+            releaseAssetIDs: [releaseAssetID]
+        )
+    }
+
+    public func makeDispatchRequest(
+        settings: GitHubSettings,
+        token: String,
+        releaseAssetIDs: [Int]
+    ) throws -> URLRequest {
         try validate(settings: settings, token: token)
+        guard !releaseAssetIDs.isEmpty else {
+            throw WorkoutSyncError.invalidArchiveEntry
+        }
 
         let url = try apiURL(
             settings: settings,
             path: "actions/workflows/\(settings.workflowFileName.trimmed)/dispatches"
         )
-        let body = DispatchBody(
-            ref: settings.branch.trimmed,
-            inputs: [
-                "run_type": "only_gpx",
-                "release_asset_id": String(releaseAssetID)
-            ]
-        )
+        var inputs = ["run_type": "only_gpx"]
+        if releaseAssetIDs.count == 1 {
+            inputs["release_asset_id"] = String(releaseAssetIDs[0])
+        } else {
+            inputs["release_asset_ids"] = releaseAssetIDs.map(String.init).joined(separator: ",")
+        }
+        let body = DispatchBody(ref: settings.branch.trimmed, inputs: inputs)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -163,6 +178,19 @@ public struct GitHubClient: Sendable {
             settings: settings,
             token: token,
             releaseAssetID: releaseAssetID
+        )
+        _ = try await perform(request: request, validStatusCodes: [204])
+    }
+
+    public func dispatchWorkflow(
+        settings: GitHubSettings,
+        token: String,
+        releaseAssetIDs: [Int]
+    ) async throws {
+        let request = try makeDispatchRequest(
+            settings: settings,
+            token: token,
+            releaseAssetIDs: releaseAssetIDs
         )
         _ = try await perform(request: request, validStatusCodes: [204])
     }
