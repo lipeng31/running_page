@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import time
 import sqlite3
 import xml.etree.ElementTree as ET
 import zipfile
@@ -178,24 +179,61 @@ def bootstrap(args):
     api.upload(release,'runhub-state-bootstrap-'+suffix+'.zip',archive)
     print('Exact cached baseline validated and preserved in private durable snapshot; legacy workflows unchanged.')
 
+def verify_publication(base, expected, deadline_seconds=180, interval_seconds=5, request_timeout=15):
+    """Verify the same marker, Vite manifest and actual activity bytes within one bounded attempt loop."""
+    deadline=time.monotonic()+deadline_seconds
+    attempt=0
+    last_failure='No complete readback'
+    def fetch(path, limit):
+        remaining=deadline-time.monotonic()
+        if remaining<=0: raise ProtocolError('Publication readback deadline reached')
+        query=urllib.parse.urlencode({'state':expected['stateSHA256'],'attempt':attempt})
+        request=urllib.request.Request(base+path+'?'+query,headers={
+            'Cache-Control':'no-cache, no-store, max-age=0','Pragma':'no-cache','Accept':'application/json','User-Agent':'RunHub-Target-v1'})
+        with urllib.request.urlopen(request,timeout=min(request_timeout,remaining)) as response:
+            chunks=[];size=0
+            read=getattr(response,'read1',response.read)
+            while True:
+                if time.monotonic()>=deadline: raise ProtocolError('Publication readback deadline reached')
+                chunk=read(min(64*1024,limit-size+1))
+                if not chunk: break
+                size+=len(chunk)
+                if size>limit: raise ProtocolError('Published response exceeds size limit')
+                chunks.append(chunk)
+            return b''.join(chunks)
+    while time.monotonic()<deadline:
+        attempt+=1
+        try:
+            actual=json.loads(fetch('runhub/v1/publication.json',64*1024))
+            if actual!=expected: raise ProtocolError('Published generation mismatch')
+            # Always reread all three pieces together; do not mix a successful old attempt with a later one.
+            vite=json.loads(fetch('.vite/manifest.json',10*1024*1024))
+            if not isinstance(vite,dict): raise ProtocolError('Published Vite manifest invalid')
+            candidates=[v.get('file') for k,v in vite.items() if isinstance(k,str) and k.endswith('src/static/activities.json') and isinstance(v,dict)]
+            if len(candidates)!=1 or not isinstance(candidates[0],str): raise ProtocolError('Published activities asset cannot be resolved')
+            asset=candidates[0];parsed=urllib.parse.urlsplit(asset)
+            if not asset.startswith('assets/') or '..' in asset or parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+                raise ProtocolError('Published activities asset cannot be resolved')
+            public=fetch(asset,128*1024*1024)
+            if digest(public)!=expected['activitiesSHA256']: raise ProtocolError('Published activities content mismatch')
+            if time.monotonic()>=deadline: raise ProtocolError('Publication readback deadline reached')
+            return
+        except (ProtocolError,urllib.error.URLError,TimeoutError,OSError,ValueError,KeyError,TypeError) as error:
+            # Only protocol errors have fixed safe text. Network/parser details can contain URLs/body fragments.
+            last_failure=str(error) if isinstance(error,ProtocolError) else type(error).__name__
+        remaining=deadline-time.monotonic()
+        if remaining<=0: break
+        time.sleep(min(interval_seconds,remaining))
+    raise ProtocolError('Published content did not converge before deadline: '+last_failure)
+
 def publish(args):
     repo,api,release,suffix=context()
     base=os.environ['PAGE_URL'].rstrip('/')+'/'
     parsed=urllib.parse.urlsplit(base)
     if parsed.scheme != 'https' or parsed.username or parsed.password: raise ProtocolError('Invalid Pages URL')
     expected=json.loads(Path('.runhub/publication.json').read_bytes())
-    # Fetch published marker and actual bundled data. Neither an upload nor deploy action alone is acceptance.
-    with urllib.request.urlopen(base+'runhub/v1/publication.json?state='+expected['stateSHA256'],timeout=60) as r:
-        actual=json.load(r)
-    if actual != expected: raise ProtocolError('Published generation mismatch')
-    # Vite's production manifest maps src/static/activities.json to the deployed content-hashed asset.
-    with urllib.request.urlopen(base+'.vite/manifest.json?state='+expected['stateSHA256'],timeout=60) as r:
-        vite=json.load(r)
-    candidates=[v['file'] for k,v in vite.items() if k.endswith('src/static/activities.json') or k=='src/static/activities.json']
-    if len(candidates)!=1 or not candidates[0].startswith('assets/') or '..' in candidates[0]: raise ProtocolError('Published activities asset cannot be resolved')
-    with urllib.request.urlopen(base+candidates[0],timeout=60) as r:
-        public=r.read(128*1024*1024+1)
-    if digest(public) != expected['activitiesSHA256']: raise ProtocolError('Published activities content mismatch')
+    # CDN propagation can lag the deploy action. Keep this exact durable generation fixed across retries.
+    verify_publication(base, expected)
     private=manifest('.runhub/data.db','.runhub/activities.json',repo,published=True)
     private['publication']=expected
     api.upload(release,'runhub-manifest-'+suffix+'.json',json.dumps(private,separators=(',',':')).encode())
