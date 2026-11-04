@@ -3,6 +3,7 @@ No credentials, activity metadata, or source IDs are printed or included in Page
 """
 import argparse
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -218,7 +219,7 @@ def verify_publication(base, expected, deadline_seconds=180, interval_seconds=5,
             if digest(public)!=expected['activitiesSHA256']: raise ProtocolError('Published activities content mismatch')
             if time.monotonic()>=deadline: raise ProtocolError('Publication readback deadline reached')
             return
-        except (ProtocolError,urllib.error.URLError,TimeoutError,OSError,ValueError,KeyError,TypeError) as error:
+        except (ProtocolError,urllib.error.URLError,http.client.IncompleteRead,TimeoutError,OSError,ValueError,KeyError,TypeError) as error:
             # Only protocol errors have fixed safe text. Network/parser details can contain URLs/body fragments.
             last_failure=str(error) if isinstance(error,ProtocolError) else type(error).__name__
         remaining=deadline-time.monotonic()
