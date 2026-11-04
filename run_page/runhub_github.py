@@ -37,14 +37,31 @@ class GitHub:
                     redirected.remove_header('Authorization')
                 if urllib.parse.urlsplit(newurl).scheme != 'https': raise ProtocolError('Insecure redirect')
                 return redirected
-        with urllib.request.build_opener(Redirect()).open(req,timeout=120) as response:
-            body=response.read(160*1024*1024+1)
-            if len(body)>160*1024*1024: raise ProtocolError('Response too large')
-            return body if binary else json.loads(body)
+        stage = ('asset-upload' if url is not None else
+                 'release-enumeration' if path.startswith('/releases?') else
+                 'asset-download' if path.startswith('/releases/assets/') else
+                 'asset-enumeration' if path.startswith('/releases/') and '/assets?' in path else
+                 'workflow-runs' if '/runs?' in path else
+                 'workflow-state' if path.startswith('/actions/workflows/') else 'api-request')
+        try:
+            with urllib.request.build_opener(Redirect()).open(req,timeout=120) as response:
+                body=response.read(160*1024*1024+1)
+                if len(body)>160*1024*1024: raise ProtocolError('Response too large')
+                return body if binary else json.loads(body)
+        except urllib.error.HTTPError as error:
+            # Codes and fixed stage labels are useful without leaking response body, signed URL or credentials.
+            raise ProtocolError(f'GitHub HTTP {error.code} during {stage}') from None
     def release(self):
-        release=self.request('/releases/tags/'+RELEASE_TAG)
-        if not release.get('draft'): raise ProtocolError('Durable state Release must remain private draft')
-        return release
+        matches=[]
+        for page in range(1,1001):
+            batch=self.request(f'/releases?per_page=100&page={page}')
+            if not isinstance(batch,list): raise ProtocolError('Unexpected release enumeration response')
+            matches.extend(r for r in batch if r.get('tag_name') == RELEASE_TAG)
+            if len(batch)<100:
+                if len(matches)!=1: raise ProtocolError('Exactly one RunHub state Release is required')
+                if not matches[0].get('draft'): raise ProtocolError('Durable state Release must remain private draft')
+                return matches[0]
+        raise ProtocolError('Release pagination incomplete')
     def assets(self,release_id):
         result=[]
         for page in range(1,1001):
