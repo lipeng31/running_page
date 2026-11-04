@@ -1,0 +1,45 @@
+name: RunHub Bootstrap
+on:
+  workflow_dispatch:
+    inputs:
+      seed_cache_key:
+        description: Exact verified successful legacy cache key (track_data-<commit>-<run_id>)
+        required: true
+        type: string
+concurrency:
+  group: runhub-durable-data-and-pages
+  cancel-in-progress: false
+permissions:
+  contents: write
+  actions: read
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Restore exact legacy snapshot
+        id: baseline
+        uses: actions/cache/restore@v4
+        with:
+          # Keep exact list/order aligned with the existing cache's version hash.
+          path: |
+            activities
+            assets
+            GPX_OUT
+            TCX_OUT
+            FIT_OUT
+            Workouts
+            run_page/data.db
+            src/static/activities.json
+            imported.json
+          key: ${{ inputs.seed_cache_key }}
+          fail-on-cache-miss: true
+      - name: Validate and preserve full baseline without changing legacy writers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEED_CACHE_KEY: ${{ inputs.seed_cache_key }}
+          SEED_CACHE_HIT: ${{ steps.baseline.outputs.cache-hit }}
+        run: python run_page/runhub_github.py bootstrap

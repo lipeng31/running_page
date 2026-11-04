@@ -1,0 +1,73 @@
+name: RunHub Sync
+run-name: RunHub ${{ inputs.task_id || 'publish-baseline' }}
+on:
+  workflow_dispatch:
+    inputs:
+      release_asset_id:
+        description: Private runhub-state draft Release input ZIP asset ID (empty to publish baseline)
+        required: false
+        type: string
+      task_id:
+        description: Stable client-generated task UUID
+        required: false
+        type: string
+      sha256:
+        description: SHA256 of workout.gpx (must match request.json)
+        required: false
+        type: string
+# This lock spans durable snapshot writes AND publication. Never cancel an accepted job.
+concurrency:
+  group: runhub-durable-data-and-pages
+  cancel-in-progress: false
+permissions:
+  contents: write
+  actions: read
+  pages: write
+  id-token: write
+jobs:
+  sync-and-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_ASSET_ID: ${{ inputs.release_asset_id }}
+      TASK_ID: ${{ inputs.task_id }}
+      GPX_SHA256: ${{ inputs.sha256 }}
+      # Preserve the repository's currently configured route privacy policy.
+      IGNORE_START_END_RANGE: '0'
+      IGNORE_POLYLINE: 'ktjrFoemeU~IorGq}DeB'
+      IGNORE_RANGE: '10'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install route privacy dependencies
+        run: python -m pip install polyline==2.0.3 haversine==2.9.0
+      - name: Validate ownership, import append-only, persist verified state
+        run: python run_page/runhub_github.py prepare
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable pinned pnpm
+        run: npm install -g corepack@latest && corepack enable pnpm
+      - name: Install website dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build website
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: PATH_PREFIX=/$REPO_NAME pnpm build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+          name: runhub-pages
+      - uses: actions/deploy-pages@v4
+        id: deployment
+        with:
+          artifact_name: runhub-pages
+      - name: Read back published content and write private terminal receipts
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: python run_page/runhub_github.py publish
